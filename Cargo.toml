@@ -1,0 +1,23 @@
+[package]
+name = "oxide-dco"
+version = "0.1.0"
+authors = ["Olexander Yermakov <olexander.yermakov@gmail.com>"]
+edition = "2018"
+
+[profile.release]
+# optimize for size ('z' would optimize even more)
+opt-level = 's'
+# link with link time optimization (lto).
+lto = true
+
+[profile.dev]
+debug = true
+
+[dependencies]
+stm32f1xx-hal = {git = "https://github.com/stm32-rs/stm32f1xx-hal", features = ["stm32f103", "rt", "medium"]}
+embedded-hal = "*"
+cortex-m-rt = "*"
+cortex-m = "*"
+cortex-m-semihosting = "*"
+panic-semihosting = "*"
+eurorack-oxide-utils = "*"

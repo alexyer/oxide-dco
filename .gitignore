@@ -1,0 +1,4 @@
+.idea/
+/target
+.gdb_history
+DAC_OUT_PUT*.txt
