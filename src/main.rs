@@ -87,7 +87,7 @@ fn init_peripherals() {
             let clocks = rcc
                 .cfgr
                 .adcclk(100.khz())
-                .sysclk(72.mhz())
+                .sysclk(48.mhz())
                 .pclk1(30.mhz())
                 .freeze(&mut flash.acr);
 
