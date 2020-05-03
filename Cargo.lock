@@ -137,7 +137,6 @@ dependencies = [
  "cortex-m-semihosting",
  "embedded-hal",
  "eurorack-oxide-utils",
- "micromath",
  "panic-semihosting",
  "stm32f1xx-hal",
 ]
