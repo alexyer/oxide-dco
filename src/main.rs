@@ -8,9 +8,10 @@ use stm32f1xx_hal as hal;
 
 use crate::hal::{
     adc, gpio,
-    gpio::{gpioa, gpiob, PushPull},
-    pac::{interrupt, Interrupt, Peripherals, ADC1, TIM3},
+    gpio::{gpiob, Output, PushPull},
+    pac::{gpioa, interrupt, Interrupt, Peripherals, ADC1, GPIOA, TIM3},
     prelude::*,
+    rcc::Enable,
     timer::{CountDownTimer, Event, Timer},
 };
 
@@ -21,13 +22,13 @@ use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use cortex_m::peripheral::Peripherals as c_m_Peripherals;
 use eurorack_oxide_utils::voct::MvOct;
-use stm32f1xx_hal::gpio::Output;
 
 type AdcCh = gpiob::PB0<gpio::Analog>;
-type OUTPIN = gpioa::PA0<Output<PushPull>>;
+type OUTPIN = gpiob::PB1<Output<PushPull>>;
 
 static G_ADC1: Mutex<RefCell<Option<adc::Adc<ADC1>>>> = Mutex::new(RefCell::new(None));
 static G_CH0: Mutex<RefCell<Option<AdcCh>>> = Mutex::new(RefCell::new(None));
+static G_DAC: Mutex<RefCell<Option<GPIOA>>> = Mutex::new(RefCell::new(None));
 static G_TIM: Mutex<RefCell<Option<CountDownTimer<TIM3>>>> = Mutex::new(RefCell::new(None));
 static G_OUT: Mutex<RefCell<Option<OUTPIN>>> = Mutex::new(RefCell::new(None));
 
@@ -43,6 +44,7 @@ macro_rules! get_peripheral_ref {
 fn TIM3() {
     static mut ADC: Option<adc::Adc<ADC1>> = None;
     static mut CH0: Option<AdcCh> = None;
+    static mut DAC: Option<GPIOA> = None;
     static mut TIM: Option<CountDownTimer<TIM3>> = None;
     static mut OUT: Option<OUTPIN> = None;
 
@@ -51,14 +53,16 @@ fn TIM3() {
 
     let adc1 = get_peripheral_ref!(ADC, G_ADC1);
     let ch0 = get_peripheral_ref!(CH0, G_CH0);
-    let tim = get_peripheral_ref!(TIM, G_TIM);
+    let dac = get_peripheral_ref!(DAC, G_DAC);
     let out = get_peripheral_ref!(OUT, G_OUT);
+    let tim = get_peripheral_ref!(TIM, G_TIM);
 
     *COUNTER += 1;
     if *COUNTER == 1 {
         out.toggle().ok();
         let measure: u16 = adc1.read(ch0).unwrap();
         *PERIOD = MvOct(measure as f32 * 1.209 + 1000.0).us() as usize;
+        dac.odr.write(|w| unsafe { w.bits((measure / 16) as u32) });
     } else if *COUNTER == *PERIOD / 2 {
         out.toggle().ok();
     } else if *COUNTER == *PERIOD {
@@ -87,7 +91,7 @@ fn init_peripherals() {
             let clocks = rcc
                 .cfgr
                 .adcclk(100.khz())
-                .sysclk(48.mhz())
+                .sysclk(70.mhz())
                 .pclk1(30.mhz())
                 .freeze(&mut flash.acr);
 
@@ -101,8 +105,7 @@ fn init_peripherals() {
             *G_CH0.borrow(cs).borrow_mut() = Some(ch0);
 
             // Init timer
-            let mut tim =
-                Timer::tim3(dp.TIM3, &clocks, &mut rcc.apb1).start_count_down(8.mhz());
+            let mut tim = Timer::tim3(dp.TIM3, &clocks, &mut rcc.apb1).start_count_down(8.mhz());
             tim.listen(Event::Update);
 
             *G_TIM.borrow(cs).borrow_mut() = Some(tim);
@@ -115,12 +118,18 @@ fn init_peripherals() {
             cortex_m::peripheral::NVIC::unpend(Interrupt::TIM3);
 
             // Configure out pin
-            let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-            let out = gpioa.pa0.into_push_pull_output(&mut gpioa.crl);
-
+            let out = gpiob.pb1.into_push_pull_output(&mut gpiob.crl);
             *G_OUT.borrow(cs).borrow_mut() = Some(out);
+
+            // Init DAC port
+            let dac = dp.GPIOA;
+            GPIOA::enable(&mut rcc.apb2);
+
+            dac.crl
+                .modify(|r, w| unsafe { w.bits(0xffffffff) });
+            *G_DAC.borrow(cs).borrow_mut() = Some(dac);
         });
     } else if cfg!(debug_assertions) {
-        panic!("Failed to initialize timer: can't take Peripherals");
+        panic!("Initialization failed: can't take Peripherals");
     }
 }
