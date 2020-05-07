@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+use core::cell::RefCell;
 // TODO(alexyer): Update to conditionally compile to halt for release.
 use panic_semihosting as _;
 
@@ -15,13 +16,13 @@ use crate::hal::{
     timer::{CountDownTimer, Event, Timer},
 };
 
+use cortex_m::{asm::wfi, interrupt::Mutex};
+
+use cortex_m::peripheral::Peripherals as c_m_Peripherals;
 use cortex_m_rt::entry;
 
-use core::cell::RefCell;
-use cortex_m::asm::wfi;
-use cortex_m::interrupt::Mutex;
-use cortex_m::peripheral::Peripherals as c_m_Peripherals;
-use eurorack_oxide_utils::voct::MvOct;
+use eurorack_oxide_utils::voct::{MvOct, VOct};
+use eurorack_oxide_utils::voct::Voltage;
 
 type AdcCh = gpiob::PB0<gpio::Analog>;
 type OUTPIN = gpiob::PB1<Output<PushPull>>;
@@ -61,8 +62,10 @@ fn TIM3() {
     if *COUNTER == 1 {
         out.toggle().ok();
         let measure: u16 = adc1.read(ch0).unwrap();
-        *PERIOD = MvOct(measure as f32 * 1.209 + 1000.0).us() as usize;
-        dac.odr.write(|w| unsafe { w.bits((measure / 16) as u32) });
+        let mv = MvOct(measure as f32 * 1.209 + 1000.0);
+        *PERIOD = mv.us() as usize;
+        // dac.odr.write(|w| unsafe { w.bits((measure / 32) as u32) });
+        dac.odr.write(|w| unsafe { w.bits((mv.hz() / 32.0) as u32) });
     } else if *COUNTER == *PERIOD / 2 {
         out.toggle().ok();
     } else if *COUNTER == *PERIOD {
@@ -125,8 +128,7 @@ fn init_peripherals() {
             let dac = dp.GPIOA;
             GPIOA::enable(&mut rcc.apb2);
 
-            dac.crl
-                .modify(|r, w| unsafe { w.bits(0xffffffff) });
+            dac.crl.write(|w| unsafe { w.bits(0x33333333) });
             *G_DAC.borrow(cs).borrow_mut() = Some(dac);
         });
     } else if cfg!(debug_assertions) {

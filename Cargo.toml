@@ -20,4 +20,5 @@ cortex-m-rt = "*"
 cortex-m = "*"
 cortex-m-semihosting = "*"
 panic-semihosting = "*"
-eurorack-oxide-utils = "*"
+eurorack-oxide-utils = { path = "../eurorack-oxide-utils"}
+#eurorack-oxide-utils = "*"

@@ -92,8 +92,6 @@ dependencies = [
 [[package]]
 name = "eurorack-oxide-utils"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a0de2662427fece0e7e7624a8130aeb8bb5731fed0aa99e1a938b8de51ae43c"
 dependencies = [
  "micromath",
 ]
