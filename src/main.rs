@@ -10,7 +10,7 @@ use stm32f1xx_hal as hal;
 use crate::hal::{
     adc, gpio,
     gpio::{gpiob, Output, PushPull},
-    pac::{gpioa, interrupt, Interrupt, Peripherals, ADC1, GPIOA, TIM3},
+    pac::{interrupt, Interrupt, Peripherals, ADC1, GPIOA, TIM3},
     prelude::*,
     rcc::Enable,
     timer::{CountDownTimer, Event, Timer},
@@ -21,7 +21,7 @@ use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m::peripheral::Peripherals as c_m_Peripherals;
 use cortex_m_rt::entry;
 
-use eurorack_oxide_utils::voct::{MvOct, VOct};
+use eurorack_oxide_utils::voct::MvOct;
 use eurorack_oxide_utils::voct::Voltage;
 
 type AdcCh = gpiob::PB0<gpio::Analog>;
@@ -61,11 +61,13 @@ fn TIM3() {
     *COUNTER += 1;
     if *COUNTER == 1 {
         out.toggle().ok();
+        let oct = 0000.0;
         let measure: u16 = adc1.read(ch0).unwrap();
-        let mv = MvOct(measure as f32 * 1.209 + 1000.0);
+        let mv = MvOct(measure as f32 * 1.3333333 + oct + 1000.0);
         *PERIOD = mv.us() as usize;
         // dac.odr.write(|w| unsafe { w.bits((measure / 32) as u32) });
-        dac.odr.write(|w| unsafe { w.bits((mv.hz() / 32.0) as u32) });
+        dac.odr
+            .write(|w| unsafe { w.bits((mv.hz() / 32.0) as u32) });
     } else if *COUNTER == *PERIOD / 2 {
         out.toggle().ok();
     } else if *COUNTER == *PERIOD {
