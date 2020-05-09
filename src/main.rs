@@ -62,8 +62,9 @@ fn TIM3() {
     if *COUNTER == 1 {
         out.toggle().ok();
         let oct = 0000.0;
-        let measure: u16 = adc1.read(ch0).unwrap();
-        let mv = MvOct(measure as f32 * 1.3333333 + oct + 1000.0);
+        // let measure: u16 = adc1.read(ch0).unwrap();
+        let avg = avg(adc1, ch0);
+        let mv = MvOct(avg as f32 * 1.3333333 + oct + 1000.0);
         *PERIOD = mv.us() as usize;
         // dac.odr.write(|w| unsafe { w.bits((measure / 32) as u32) });
         dac.odr
@@ -75,6 +76,16 @@ fn TIM3() {
     }
 
     tim.wait().ok();
+}
+
+fn avg(adc: &mut adc::Adc<ADC1>, ch: &mut AdcCh) -> u32 {
+    let mut acc: u32 = 0;
+    for i in 0..1024 {
+        let measure: u32 = adc.read(ch).unwrap();
+        acc += measure;
+    }
+
+    acc / 1024
 }
 
 #[entry]
@@ -95,7 +106,7 @@ fn init_peripherals() {
             // Init clocks
             let clocks = rcc
                 .cfgr
-                .adcclk(100.khz())
+                .adcclk(10.mhz())
                 .sysclk(70.mhz())
                 .pclk1(30.mhz())
                 .freeze(&mut flash.acr);
