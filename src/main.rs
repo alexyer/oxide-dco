@@ -18,8 +18,8 @@ use crate::hal::{
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m::peripheral::Peripherals as c_m_Peripherals;
+use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
 
 use eurorack_oxide_utils::voct::MvOct;
@@ -27,7 +27,7 @@ use eurorack_oxide_utils::voct::Voltage;
 
 type AdcCh = gpiob::PB0<gpio::Analog>;
 type OUTPIN = gpiob::PB1<Output<PushPull>>;
-const AVGBUFSIZE: usize = 1024;
+const AVG_BUF_SIZE: usize = 1024;
 const TIM3_FREQ_HZ: u32 = 200000;
 const SEC_IN_US: u32 = 1000000;
 
@@ -58,23 +58,28 @@ fn us_to_period(us: u32) -> u32 {
 #[interrupt]
 fn TIM2() {
     static mut ADC: Option<adc::Adc<ADC1>> = None;
-    static mut CH0: Option<AdcCh> = None;
-    static mut TIM: Option<CountDownTimer<TIM2>> = None;
+    static mut AVG_BUF: [u16; AVG_BUF_SIZE] = [0; AVG_BUF_SIZE];
     static mut AVG_COUNTER: usize = 0;
-    static mut AVGBUF: [u16; AVGBUFSIZE] = [0; AVGBUFSIZE];
+    static mut CH0: Option<AdcCh> = None;
+    static mut DAC: Option<GPIOA> = None;
+    static mut TIM: Option<CountDownTimer<TIM2>> = None;
 
     let adc1 = get_peripheral_ref!(ADC, G_ADC1);
+    let dac = get_peripheral_ref!(DAC, G_DAC);
     let ch0 = get_peripheral_ref!(CH0, G_CH0);
     let tim = get_peripheral_ref!(TIM, G_TIM2);
 
-    AVGBUF[*AVG_COUNTER % AVGBUFSIZE] = adc1.read(ch0).unwrap();
+    AVG_BUF[*AVG_COUNTER % AVG_BUF_SIZE] = adc1.read(ch0).unwrap();
     *AVG_COUNTER += 1;
 
-    if *AVG_COUNTER % AVGBUFSIZE == 0 {
-        let avg = avg(AVGBUF);
+    if *AVG_COUNTER % AVG_BUF_SIZE == 0 {
+        let avg = avg(AVG_BUF);
         let voltage = avg * 1200 / adc1.read_vref() as u32;
         let mv = MvOct(voltage as f32 * 1.5015 as f32);
+
         PERIOD.store(us_to_period(mv.us()), Ordering::Relaxed);
+        dac.odr
+            .write(|w| unsafe { w.bits((mv.hz() / 32.0) as u32) });
     }
 
     tim.wait().ok();
@@ -82,14 +87,12 @@ fn TIM2() {
 
 #[interrupt]
 fn TIM3() {
-    // static mut DAC: Option<GPIOA> = None;
     static mut TIM: Option<CountDownTimer<TIM3>> = None;
     static mut OUT: Option<OUTPIN> = None;
 
     static mut LOCAL_PERIOD: u32 = 0;
     static mut COUNTER: u32 = 0;
 
-    // let dac = get_peripheral_ref!(DAC, G_DAC);
     let out = get_peripheral_ref!(OUT, G_OUT);
     let tim = get_peripheral_ref!(TIM, G_TIM3);
 
@@ -100,33 +103,16 @@ fn TIM3() {
     }
     *COUNTER += 1;
 
-    // if *COUNTER == 1 {
-    //     out.toggle().ok();
-    //     // let oct = 0000.0;
-    //     // let avg = avg(AVGBUF);
-    //     // let avg: u16 = adc1.read(ch0).unwrap();
-    //     // let voltage = avg * 1200 / adc1.read_vref();
-    //     let mv = MvOct(7000.0);
-    //     // let mv = MvOct(voltage as f32 * 1.5015 as f32 + oct + 2000.0);
-    //     *PERIOD = (mv.us() / 10 * 2) as usize;
-    //     // dac.odr.write(|w| unsafe { w.bits((measure / 32) as u32) });
-    //     // dac.odr
-    //     //     .write(|w| unsafe { w.bits((mv.hz() / 32.0) as u32) });
-    // } else if *COUNTER == *PERIOD / 2 {
-    //     out.toggle().ok();
-    // } else if *COUNTER == *PERIOD {
-    //     *COUNTER = 0;
-    // }
     tim.wait().ok();
 }
 
-fn avg(buf: &mut [u16; AVGBUFSIZE]) -> u32 {
+fn avg(buf: &mut [u16; AVG_BUF_SIZE]) -> u32 {
     let mut acc: u32 = 0;
-    for i in 0..AVGBUFSIZE {
+    for i in 0..buf.len() {
         acc += buf[i] as u32;
     }
 
-    acc / AVGBUFSIZE as u32
+    acc / AVG_BUF_SIZE as u32
 }
 
 #[entry]
