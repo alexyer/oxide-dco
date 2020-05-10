@@ -27,7 +27,7 @@ use eurorack_oxide_utils::voct::Voltage;
 
 type AdcCh = gpiob::PB0<gpio::Analog>;
 type OUTPIN = gpiob::PB1<Output<PushPull>>;
-const AVG_BUF_SIZE: usize = 1024;
+decreconst AVG_BUF_SIZE: usize = 32;
 const TIM3_FREQ_HZ: u32 = 200000;
 const SEC_IN_US: u32 = 1000000;
 
