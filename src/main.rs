@@ -18,6 +18,7 @@ use crate::hal::{
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+use cortex_m_semihosting::hprintln;
 use cortex_m::peripheral::Peripherals as c_m_Peripherals;
 use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
@@ -27,7 +28,7 @@ use eurorack_oxide_utils::voct::Voltage;
 
 type AdcCh = gpiob::PB0<gpio::Analog>;
 type OUTPIN = gpiob::PB1<Output<PushPull>>;
-decreconst AVG_BUF_SIZE: usize = 32;
+const AVG_BUF_SIZE: usize = 32;
 const TIM3_FREQ_HZ: u32 = 200000;
 const SEC_IN_US: u32 = 1000000;
 
@@ -74,8 +75,11 @@ fn TIM2() {
 
     if *AVG_COUNTER % AVG_BUF_SIZE == 0 {
         let avg = avg(AVG_BUF);
-        let voltage = avg * 1200 / adc1.read_vref() as u32;
-        let mv = MvOct(voltage as f32 * 1.5015 as f32);
+        // hprintln!("avg = {}", avg);
+        let voltage = avg as f32 * 1191.55555 / adc1.read_vref() as f32;
+        // let voltage = avg as f32 * 1.237740204;
+        let mv = MvOct(6000.0 - 2.0 * voltage);
+        // let mv = MvOct(voltage as f32 * 1.5015 as f32);
 
         PERIOD.store(us_to_period(mv.us()), Ordering::Relaxed);
         dac.odr
