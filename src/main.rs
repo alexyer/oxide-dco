@@ -83,7 +83,7 @@ fn TIM2() {
 
         PERIOD.store(us_to_period(mv.us()), Ordering::Relaxed);
         dac.odr
-            .write(|w| unsafe { w.bits((mv.hz() / 32.0) as u32) });
+            .write(|w| unsafe { w.bits((mv.hz() / 16.0) as u32) });
     }
 
     tim.wait().ok();
