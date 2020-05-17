@@ -6,10 +6,13 @@ use panic_semihosting as _;
 
 use rtfm::app;
 
+use embedded_hal::digital::v2::OutputPin;
 use stm32f1xx_hal as hal;
 
 use crate::hal::{
-    adc, gpio, pac,
+    adc, gpio,
+    gpio::ExtiPin,
+    pac,
     prelude::*,
     rcc::Enable,
     timer::{CountDownTimer, Event, Timer},
@@ -47,12 +50,16 @@ const APP: () = {
         adc1: adc::Adc<pac::ADC1>,
         ch0: gpio::gpiob::PB0<gpio::Analog>,
         dac: pac::GPIOA,
+        hard_sync: gpio::gpiob::PB5<gpio::Input<gpio::Floating>>,
+        out: gpio::gpiob::PB1<gpio::Output<gpio::PushPull>>,
         tim2: CountDownTimer<pac::TIM2>,
         tim3: CountDownTimer<pac::TIM3>,
-        out: gpio::gpiob::PB1<gpio::Output<gpio::PushPull>>,
 
         #[init([0; AVG_BUF_SIZE])]
         avg_buf: [u16; AVG_BUF_SIZE],
+
+        #[init(AtomicU32::new(0))]
+        counter: AtomicU32,
 
         #[init(AtomicU32::new(0))]
         period: AtomicU32,
@@ -62,6 +69,7 @@ const APP: () = {
     fn init(cx: init::Context) -> init::LateResources {
         let mut flash = cx.device.FLASH.constrain();
         let mut rcc = cx.device.RCC.constrain();
+        let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
 
         // Init clocks
         let clocks = rcc
@@ -86,7 +94,7 @@ const APP: () = {
             Timer::tim3(cx.device.TIM3, &clocks, &mut rcc.apb1).start_count_down(TIM3_FREQ_HZ.hz());
         tim3.listen(Event::Update);
 
-        // Configure out pin
+        // Init out pin
         let out = gpiob.pb1.into_push_pull_output(&mut gpiob.crl);
 
         // Init DAC port
@@ -94,25 +102,41 @@ const APP: () = {
         pac::GPIOA::enable(&mut rcc.apb2);
         dac.crl.write(|w| unsafe { w.bits(0x33333333) });
 
+        // Init Hard Sync pin
+        let mut hard_sync = gpiob.pb5.into_floating_input(&mut gpiob.crl);
+        hard_sync.make_interrupt_source(&mut afio);
+        hard_sync.trigger_on_edge(&cx.device.EXTI, gpio::Edge::RISING);
+        hard_sync.enable_interrupt(&cx.device.EXTI);
+
         init::LateResources {
             adc1,
             ch0,
+            dac,
+            hard_sync,
+            out,
             tim2,
             tim3,
-            out,
-            dac,
         }
     }
 
-    #[task(binds = TIM3, priority = 2, resources = [out, tim3, &period])]
-    fn tick(cx: tick::Context) {
-        static mut COUNTER: u32 = 0;
+    #[task(binds = EXTI9_5, priority = 2, resources = [&counter, hard_sync])]
+    fn hard_sync(cx: hard_sync::Context) {
+        cx.resources.counter.store(0, Ordering::Relaxed);
+        cx.resources.hard_sync.clear_interrupt_pending_bit();
+    }
 
-        if *COUNTER >= cx.resources.period.load(Ordering::Relaxed) {
+    #[task(binds = TIM3, priority = 3, resources = [&counter, out, tim3, &period])]
+    fn tick(cx: tick::Context) {
+        let c = cx.resources.counter.load(Ordering::Relaxed);
+
+        if c == 0 {
+            cx.resources.out.set_low().ok();
+        } else if c >= cx.resources.period.load(Ordering::Relaxed) {
             cx.resources.out.toggle().ok();
-            *COUNTER = 0;
+            cx.resources.counter.store(0, Ordering::Relaxed);
         }
-        *COUNTER += 1;
+
+        cx.resources.counter.fetch_add(1, Ordering::Relaxed);
 
         cx.resources.tim3.clear_update_interrupt_flag();
     }
