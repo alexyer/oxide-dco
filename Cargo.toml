@@ -17,6 +17,7 @@ debug = true
 stm32f1xx-hal = {git = "https://github.com/stm32-rs/stm32f1xx-hal", features = ["stm32f103", "rt", "medium"]}
 embedded-hal = "*"
 cortex-m-rt = "*"
+cortex-m-rtfm = "*"
 cortex-m = "*"
 cortex-m-semihosting = "*"
 panic-semihosting = "*"
