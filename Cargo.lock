@@ -217,7 +217,7 @@ dependencies = [
  "eurorack-oxide-utils",
  "panic-semihosting",
  "ssd1306",
- "stm32f1xx-hal",
+ "stm32f0xx-hal",
 ]
 
 [[package]]
@@ -312,10 +312,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 
 [[package]]
-name = "stm32f1"
+name = "stm32f0"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "849b1e8d9bcfd792c9d9178cf86165d299a661c26e35d9322ae9382d3f3fe460"
+checksum = "9673b9c3ecdf8ea1133492f3070515d64f51e98439710eae062552fc80b94a6c"
 dependencies = [
  "bare-metal",
  "cortex-m",
@@ -324,17 +324,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "stm32f1xx-hal"
-version = "0.5.3"
-source = "git+https://github.com/stm32-rs/stm32f1xx-hal#3fd22e950d66d0d120f62baf08a16af15524cb6a"
+name = "stm32f0xx-hal"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a01836951a5eb4d322f31c63a30dcfcaec383f88d6d89cadb90311c00e564a3b"
 dependencies = [
- "as-slice",
+ "bare-metal",
  "cast",
  "cortex-m",
- "cortex-m-rt",
  "embedded-hal",
  "nb",
- "stm32f1",
+ "stm32f0",
  "void",
 ]
 

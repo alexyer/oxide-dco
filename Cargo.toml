@@ -14,7 +14,7 @@ lto = true
 debug = true
 
 [dependencies]
-stm32f1xx-hal = {git = "https://github.com/stm32-rs/stm32f1xx-hal", features = ["stm32f103", "rt", "medium"]}
+stm32f0xx-hal = {version = "0.17.1", features = ["stm32f030", "rt", "stm32f030x6"]}
 embedded-graphics = "*"
 embedded-hal = "*"
 cortex-m-rt = "*"
