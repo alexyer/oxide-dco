@@ -117,6 +117,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-graphics"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40a69991ceb896bd4810a0cf2bcc46fc94b7860573c71f965d8e5b3d66942fed"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "embedded-hal"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -203,9 +212,11 @@ dependencies = [
  "cortex-m-rt",
  "cortex-m-rtfm",
  "cortex-m-semihosting",
+ "embedded-graphics",
  "embedded-hal",
  "eurorack-oxide-utils",
  "panic-semihosting",
+ "ssd1306",
  "stm32f1xx-hal",
 ]
 
@@ -283,6 +294,16 @@ name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
+
+[[package]]
+name = "ssd1306"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dc474b49daaa874780fa79ce6319fefe309987f02617e4183fa6d2c494bbe4f"
+dependencies = [
+ "embedded-graphics",
+ "embedded-hal",
+]
 
 [[package]]
 name = "stable_deref_trait"
